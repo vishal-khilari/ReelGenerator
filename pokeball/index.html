@@ -1,0 +1,340 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Interactive Pokéball</title>
+    <style>
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        font-family: "Arial", sans-serif;
+        overflow: hidden;
+      }
+
+      .container {
+        position: relative;
+        cursor: pointer;
+      }
+
+      .pokeball {
+        width: 300px;
+        height: 300px;
+        position: relative;
+        transition: transform 0.3s ease;
+      }
+
+      .pokeball:hover {
+        transform: scale(1.05);
+      }
+
+      .pokeball.opening {
+        animation: shake 0.5s ease;
+      }
+
+      @keyframes shake {
+        0%,
+        100% {
+          transform: rotate(0deg);
+        }
+        25% {
+          transform: rotate(-10deg);
+        }
+        75% {
+          transform: rotate(10deg);
+        }
+      }
+
+      .half {
+        width: 300px;
+        height: 150px;
+        position: absolute;
+        border-radius: 150px 150px 0 0;
+        transition: all 0.8s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+      }
+
+      .top-half {
+        background: linear-gradient(135deg, #ff1744 0%, #d50000 100%);
+        top: 0;
+        border-bottom: 8px solid #1a1a1a;
+        box-shadow:
+          inset 0 -10px 20px rgba(0, 0, 0, 0.3),
+          0 5px 15px rgba(0, 0, 0, 0.3);
+        transform-origin: bottom center;
+      }
+
+      .top-half::before {
+        content: "";
+        position: absolute;
+        top: 20px;
+        left: 40px;
+        width: 80px;
+        height: 40px;
+        background: rgba(255, 255, 255, 0.3);
+        border-radius: 50%;
+        filter: blur(10px);
+      }
+
+      .bottom-half {
+        background: linear-gradient(135deg, #fafafa 0%, #e0e0e0 100%);
+        bottom: 0;
+        border-radius: 0 0 150px 150px;
+        border-top: 8px solid #1a1a1a;
+        box-shadow:
+          inset 0 10px 20px rgba(0, 0, 0, 0.1),
+          0 5px 15px rgba(0, 0, 0, 0.3);
+        transform-origin: top center;
+      }
+
+      .center-line {
+        position: absolute;
+        top: 50%;
+        left: 0;
+        width: 100%;
+        height: 16px;
+        background: #1a1a1a;
+        transform: translateY(-50%);
+        z-index: 3;
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+      }
+
+      .button-container {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 4;
+        width: 90px;
+        height: 90px;
+      }
+
+      .outer-button {
+        width: 90px;
+        height: 90px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #424242 0%, #1a1a1a 100%);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        box-shadow:
+          0 0 0 6px #1a1a1a,
+          0 0 20px rgba(0, 0, 0, 0.5),
+          inset 0 3px 10px rgba(255, 255, 255, 0.2);
+        transition: all 0.3s ease;
+      }
+
+      .pokeball:hover .outer-button {
+        box-shadow:
+          0 0 0 6px #1a1a1a,
+          0 0 30px rgba(255, 255, 255, 0.5),
+          inset 0 3px 10px rgba(255, 255, 255, 0.3);
+      }
+
+      .inner-button {
+        width: 50px;
+        height: 50px;
+        border-radius: 50%;
+        background: radial-gradient(
+          circle at 30% 30%,
+          #ffffff 0%,
+          #e0e0e0 100%
+        );
+        border: 3px solid #424242;
+        box-shadow:
+          inset 0 -3px 8px rgba(0, 0, 0, 0.3),
+          0 3px 10px rgba(255, 255, 255, 0.3);
+        position: relative;
+        overflow: hidden;
+      }
+
+      .inner-button::before {
+        content: "";
+        position: absolute;
+        top: 5px;
+        left: 5px;
+        width: 15px;
+        height: 15px;
+        background: rgba(255, 255, 255, 0.8);
+        border-radius: 50%;
+        filter: blur(3px);
+      }
+
+      .pokeball.open .top-half {
+        transform: rotateX(-120deg);
+      }
+
+      .pokeball.open .bottom-half {
+        transform: rotateX(10deg);
+      }
+
+      .energy {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        width: 0;
+        height: 0;
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .pokeball.open .energy {
+        animation: energyBurst 1.5s ease-out forwards;
+      }
+
+      @keyframes energyBurst {
+        0% {
+          width: 0;
+          height: 0;
+          opacity: 0;
+        }
+        50% {
+          width: 400px;
+          height: 400px;
+          opacity: 1;
+          background: radial-gradient(
+            circle,
+            rgba(255, 255, 255, 0.8) 0%,
+            rgba(100, 200, 255, 0.4) 50%,
+            transparent 70%
+          );
+          box-shadow: 0 0 100px rgba(100, 200, 255, 0.8);
+        }
+        100% {
+          width: 600px;
+          height: 600px;
+          opacity: 0;
+          background: radial-gradient(
+            circle,
+            rgba(255, 255, 255, 0) 0%,
+            rgba(100, 200, 255, 0) 50%,
+            transparent 70%
+          );
+        }
+      }
+
+      .particles {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        width: 100%;
+        height: 100%;
+        pointer-events: none;
+      }
+
+      .particle {
+        position: absolute;
+        width: 6px;
+        height: 6px;
+        background: white;
+        border-radius: 50%;
+        opacity: 0;
+        box-shadow: 0 0 10px rgba(255, 255, 255, 0.8);
+      }
+
+      .pokeball.open .particle {
+        animation: particleFloat 1.5s ease-out forwards;
+      }
+
+      @keyframes particleFloat {
+        0% {
+          transform: translate(-50%, -50%) translate(0, 0);
+          opacity: 1;
+        }
+        100% {
+          transform: translate(-50%, -50%) translate(var(--x), var(--y));
+          opacity: 0;
+        }
+      }
+
+      .instruction {
+        position: absolute;
+        bottom: -80px;
+        left: 50%;
+        transform: translateX(-50%);
+        color: white;
+        font-size: 18px;
+        font-weight: bold;
+        text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        animation: pulse 2s ease-in-out infinite;
+        white-space: nowrap;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 0.7;
+        }
+        50% {
+          opacity: 1;
+        }
+      }
+
+      .pokeball.open .instruction {
+        display: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="pokeball" id="pokeball">
+        <div class="half top-half"></div>
+        <div class="half bottom-half"></div>
+        <div class="center-line"></div>
+        <div class="button-container">
+          <div class="outer-button">
+            <div class="inner-button"></div>
+          </div>
+        </div>
+        <div class="energy"></div>
+        <div class="particles" id="particles"></div>
+      </div>
+      <div class="instruction">Click to open!</div>
+    </div>
+
+    <script>
+      const pokeball = document.getElementById("pokeball");
+      const particlesContainer = document.getElementById("particles");
+      let isOpen = false;
+
+      // Create particles
+      for (let i = 0; i < 20; i++) {
+        const particle = document.createElement("div");
+        particle.className = "particle";
+        const angle = (i / 20) * Math.PI * 2;
+        const distance = 150 + Math.random() * 100;
+        const x = Math.cos(angle) * distance;
+        const y = Math.sin(angle) * distance;
+        particle.style.setProperty("--x", `${x}px`);
+        particle.style.setProperty("--y", `${y}px`);
+        particle.style.left = "50%";
+        particle.style.top = "50%";
+        particle.style.animationDelay = `${Math.random() * 0.3}s`;
+        particlesContainer.appendChild(particle);
+      }
+
+      pokeball.addEventListener("click", () => {
+        if (!isOpen) {
+          pokeball.classList.add("opening");
+          setTimeout(() => {
+            pokeball.classList.remove("opening");
+            pokeball.classList.add("open");
+            isOpen = true;
+          }, 500);
+        } else {
+          pokeball.classList.remove("open");
+          isOpen = false;
+        }
+      });
+    </script>
+  </body>
+</html>
