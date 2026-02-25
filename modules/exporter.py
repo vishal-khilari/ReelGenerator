@@ -43,23 +43,26 @@ def export_final_reel(raw_video_path: str, session_dir: Path, stem: str) -> str:
                "format=yuv420p",
         "-c:v", cfg["codec"],           # libx264
         "-preset", "slow",              # Better compression, worth the wait
-        "-crf", "18",                   # High quality (18 = near-lossless visually)
+        "-crf", "18",                   # High quality
         "-b:v", cfg["bitrate"],
         "-maxrate", "10000k",
         "-bufsize", "20000k",
         "-c:a", cfg["audio_codec"],     # aac
         "-b:a", "192k",
         "-ar", "44100",
-        "-movflags", "+faststart",      # Moov atom first = instant play on Instagram
+        "-ac", "2",                     # Force stereo
+        "-map", "0:v:0",                # Map first video stream
+        "-map", "0:a:0?",               # Map first audio stream (optional if missing)
+        "-movflags", "+faststart",
         "-metadata", f"comment=Created by AI Reel Engine",
         final_path,
     ]
 
-    print(f"      Running ffmpeg export...")
+    print(f"      Running ffmpeg export (source: {'loudnorm' if loudnorm_success else 'raw'})...")
     result = subprocess.run(cmd, capture_output=True, text=True)
 
     if result.returncode != 0:
-        print(f"      ⚠️  ffmpeg warning: {result.stderr[-500:]}")
+        print(f"      ⚠️  ffmpeg error: {result.stderr[-500:]}")
         # Try simpler fallback
         _simple_export(raw_video_path, final_path, cfg)
 
@@ -152,12 +155,22 @@ def _print_video_info(video_path: str):
         if result.returncode == 0:
             import json
             data = json.loads(result.stdout)
+            has_video = False
+            has_audio = False
             for stream in data.get("streams", []):
                 if stream.get("codec_type") == "video":
+                    has_video = True
                     w = stream.get("width")
                     h = stream.get("height")
                     fps = stream.get("r_frame_rate", "?")
                     dur = float(stream.get("duration", 0))
-                    print(f"      📐 {w}×{h} | {fps}fps | {dur:.1f}s")
+                    print(f"      📐 Video: {w}×{h} | {fps}fps | {dur:.1f}s")
+                if stream.get("codec_type") == "audio":
+                    has_audio = True
+                    a_codec = stream.get("codec_name")
+                    print(f"      🔊 Audio: {a_codec} stream detected")
+            
+            if not has_audio:
+                print(f"      ⚠️  WARNING: No audio stream found in {Path(video_path).name}")
     except Exception:
         pass

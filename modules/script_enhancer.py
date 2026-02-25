@@ -70,7 +70,7 @@ def _enhance_with_gemini(transcript: dict, analysis: dict, api_key: str) -> dict
         format=analysis["format"],
     )
 
-    url = f"https://generativelanguage.googleapis.com/v1beta/models/{CONFIG['apis']['gemini_model']}:generateContent"
+    url = f"https://generativelanguage.googleapis.com/v1/models/{CONFIG['apis']['gemini_model']}:generateContent"
     headers = {"Content-Type": "application/json"}
     params = {"key": api_key}
     payload = {

@@ -2,6 +2,10 @@
 ⚙️ CONFIG — All global settings for the Reel Engine
 Edit this file to customize output behavior.
 """
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
 
 CONFIG = {
     # ── Video Settings ──────────────────────────────────────────────
@@ -13,6 +17,7 @@ CONFIG = {
         "codec": "libx264",
         "audio_codec": "aac",
         "bitrate": "8000k",
+        "master_volume": 1.2,        # Boost audio by 20% by default
     },
 
     # ── Whisper Settings ────────────────────────────────────────────
@@ -107,16 +112,16 @@ CONFIG = {
     # ── APIs (Free Tiers) ────────────────────────────────────────────
     "apis": {
         # Gemini: free tier at https://aistudio.google.com/
-        "gemini_api_key": "AIzaSyDCIldmBlCOaG4eh6Fe1VMAZ_L_ElwZesI",
-        "gemini_model": "gemini-1.5-flash-latest",   # Free tier model
+        "gemini_api_key": os.getenv("GEMINI_API_KEY"),
+        "gemini_model": "gemini-2.5-flash",   # Free tier model
 
         # Pexels: free API at https://www.pexels.com/api/
-        "pexels_api_key": "MreVXskC4B5NyhGBdKDENLP3GfOYmsQFLEOicP95MMslUxaLIlIgSda4",
+        "pexels_api_key": os.getenv("PEXELS_API_KEY"),
 
         # Unsplash: free API at https://unsplash.com/developers
-        "unsplash_api_key": "nkKCdZRzw_y1ji238t3HAFL7dNpjuhg_lztbuIv7qNE",
+        "unsplash_api_key": os.getenv("UNSPLASH_API_KEY"),
 
         # Pixabay: free at https://pixabay.com/api/docs/
-        "pixabay_api_key": "54793483-db5b735230e5756a28ed02a83",
+        "pixabay_api_key": os.getenv("PIXABAY_API_KEY"),
     },
 }

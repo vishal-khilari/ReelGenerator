@@ -51,6 +51,8 @@ def assemble_reel(
 
     # 2. Load audio
     audio_clip = AudioFileClip(audio_path)
+    audio_clip = audio_clip.volumex(CONFIG["video"].get("master_volume", 1.0))
+    print(f"      🎵 Audio duration: {audio_clip.duration:.2f}s (Volume: {CONFIG['video'].get('master_volume', 1.0)}x)")
 
     # 3. Generate subtitle frames and overlay them
     word_chunks = get_word_chunks(transcript, words_per_chunk=SUB_CFG["words_per_chunk"])
@@ -74,10 +76,10 @@ def assemble_reel(
         raw_path,
         fps=FPS,
         codec="libx264",
+        audio=True,
         audio_codec="aac",
         verbose=False,
-        logger=None,
-        temp_audiofile=str(session_dir / "temp_audio.m4a"),
+        logger=None
     )
     return raw_path
 
@@ -90,8 +92,20 @@ def _build_video_timeline(visuals: list, total_duration: float, session_dir: Pat
     """
     clips = []
     n = len(visuals)
-    clip_dur = total_duration / max(n, 1)
-    clip_dur = np.clip(clip_dur, RETENTION["min_clip_duration_sec"], RETENTION["max_clip_duration_sec"])
+    
+    if n == 0:
+        # Fallback: black video
+        black = np.zeros((H, W, 3), dtype=np.uint8)
+        return ImageClip(black).set_duration(total_duration)
+
+    # Calculate duration per clip to perfectly fill total_duration
+    clip_dur = total_duration / n
+    
+    # We still want a minimum duration to avoid flickering, 
+    # but we don't cap the maximum anymore if it would lead to a gap.
+    min_dur = RETENTION["min_clip_duration_sec"]
+    if clip_dur < min_dur:
+        clip_dur = min_dur
 
     transition_dur = 0.3  # seconds for transition between clips
 
@@ -107,6 +121,9 @@ def _build_video_timeline(visuals: list, total_duration: float, session_dir: Pat
 
         # Trim/extend to match clip_dur
         needed = int(clip_dur * FPS)
+        if not frame_paths:
+            continue
+            
         while len(frame_paths) < needed:
             frame_paths += frame_paths   # loop frames if too short
         frame_paths = frame_paths[:needed]
@@ -132,11 +149,13 @@ def _build_video_timeline(visuals: list, total_duration: float, session_dir: Pat
         clips.append(clip)
 
     if not clips:
-        # Fallback: black video
         black = np.zeros((H, W, 3), dtype=np.uint8)
         return ImageClip(black).set_duration(total_duration)
 
-    return concatenate_videoclips(clips, method="compose")
+    final_video = concatenate_videoclips(clips, method="compose")
+    
+    # Ensure it exactly matches total_duration (handles small rounding errors)
+    return final_video.set_duration(total_duration)
 
 
 def _write_transition_frames(frames_a: list, frames_b: list, out_dir: Path, n: int, style: str):
