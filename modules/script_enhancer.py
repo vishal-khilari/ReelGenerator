@@ -30,8 +30,10 @@ Your task:
 3. For each part, write a [SCENE NOTE] describing what visual should appear
 4. Keep total script under the original duration
 5. Make it feel human, NOT like AI
+6. Keep each field SHORT: hook ≤ 10 words, hook_visual_note ≤ 20 words, buildup ≤ 60 words, punchline ≤ 30 words, buildup_visual_note ≤ 15 words, punchline_visual_note ≤ 15 words. Be concise.
 
-Respond in this EXACT JSON format:
+IMPORTANT: Respond ONLY with raw JSON. Do NOT wrap in markdown or code blocks. Do NOT add any explanation before or after. Start your response directly with {{ and end with }}
+
 {{
   "hook": "...",
   "hook_visual_note": "...",
@@ -76,20 +78,84 @@ def _enhance_with_gemini(transcript: dict, analysis: dict, api_key: str) -> dict
     payload = {
         "contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {
-            "temperature": 0.8,
-            "maxOutputTokens": 1024,
+            "temperature": 0.6,
+            "maxOutputTokens": 8192,  # Increased from 2048 — old value caused truncated JSON
+            # NOTE: stopSequences removed — it was causing Gemini to stop
+            # immediately when it tried to wrap output in ```json blocks,
+            # resulting in an empty response with finishReason: STOP.
         },
     }
 
-    resp = requests.post(url, headers=headers, params=params, json=payload, timeout=30)
-    resp.raise_for_status()
-    raw = resp.json()["candidates"][0]["content"]["parts"][0]["text"]
+    def _call_gemini():
+        resp = requests.post(url, headers=headers, params=params, json=payload, timeout=30)
+        resp.raise_for_status()
+        response_json = resp.json()
 
-    # Parse JSON from response (strip markdown fences if present)
-    json_str = re.sub(r"```json|```", "", raw).strip()
-    data = json.loads(json_str)
+        # Surface real API errors (invalid key, quota exceeded, etc.)
+        if "error" in response_json:
+            raise ValueError(f"Gemini API error: {response_json['error']}")
 
-    # Ensure all required fields exist
+        candidates = response_json.get("candidates", [])
+        if not candidates:
+            raise ValueError(f"Gemini returned no candidates. Full response: {response_json}")
+
+        candidate = candidates[0]
+
+        # Check for safety filters or other blocking reasons
+        finish_reason = candidate.get("finishReason", "")
+        if finish_reason not in ("STOP", "MAX_TOKENS", ""):
+            raise ValueError(
+                f"Gemini candidate blocked. finishReason: {finish_reason}. "
+                f"Full candidate: {candidate}"
+            )
+
+        parts = candidate.get("content", {}).get("parts", [])
+        if not parts:
+            raise ValueError(
+                f"Gemini returned empty parts. This usually means stopSequences "
+                f"triggered immediately or a silent safety block. "
+                f"Full candidate: {candidate}"
+            )
+
+        return parts[0]["text"]
+
+    # ===== FIRST ATTEMPT =====
+    raw = _call_gemini()
+
+    # ===== DEBUG RAW OUTPUT =====
+    print("\n===== GEMINI RAW RESPONSE =====")
+    print(raw)
+    print("================================\n")
+
+    # ===== CLEAN MARKDOWN (safety net in case model still wraps) =====
+    clean = re.sub(r"```json|```", "", raw).strip()
+
+    # ===== EXTRACT JSON SAFELY =====
+    start = clean.find("{")
+    end = clean.rfind("}")
+
+    if start == -1 or end == -1:
+        print("⚠️  Gemini returned no JSON object. Retrying once...")
+        raw = _call_gemini()
+        clean = re.sub(r"```json|```", "", raw).strip()
+        start = clean.find("{")
+        end = clean.rfind("}")
+        if start == -1 or end == -1:
+            raise ValueError(
+                f"Gemini returned invalid JSON after retry. Raw output:\n{raw}"
+            )
+
+    json_str = clean[start:end + 1]
+
+    # ===== PARSE JSON =====
+    try:
+        data = json.loads(json_str)
+    except json.JSONDecodeError as e:
+        print("⚠️  JSON parsing failed. Raw Gemini output:")
+        print(raw)
+        raise e
+
+    # Ensure all required fields exist with fallbacks
     return _normalize_enhanced(data, transcript, analysis)
 
 
@@ -130,7 +196,7 @@ def _rule_based_enhancement(transcript: dict, analysis: dict) -> dict:
 
     return {
         "hook": hook,
-        "hook_visual_note": f"dark atmospheric background, text slam animation",
+        "hook_visual_note": "dark atmospheric background, text slam animation",
         "buildup": buildup,
         "buildup_visual_note": f"{emotion} themed visuals, slow motion",
         "punchline": punchline,
