@@ -1,0 +1,24 @@
+body {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  width: 100vw;
+  background-color: rgb(201, 255, 252);
+}
+.container {
+  background-color: rgba(49, 255, 255, 0.193);
+  display: flex;
+  padding: 10px;
+}
+.emojies {
+  margin: 0.1px;
+  font-size: x-large;
+  filter: saturate(0);
+  background-color: rgb(122, 27, 255);
+}
+
+.emojies:hover {
+  /* scale: 1.3; */
+  filter: saturate(1);
+}
