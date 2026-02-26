@@ -1,0 +1,74 @@
+[
+  {
+    "clip_index": 0,
+    "start_sec": 0.0,
+    "end_sec": 2.5,
+    "duration_sec": 2.5,
+    "search_query": "person reaching summit",
+    "effect": "slow_zoom",
+    "note": "Hook: Establish the theme of success through failure."
+  },
+  {
+    "clip_index": 1,
+    "start_sec": 2.5,
+    "end_sec": 9.0,
+    "duration_sec": 6.5,
+    "search_query": "rejected manuscript pile",
+    "effect": "subtle_drift",
+    "note": "JK Rowling's rejection story."
+  },
+  {
+    "clip_index": 2,
+    "start_sec": 9.0,
+    "end_sec": 14.0,
+    "duration_sec": 5.0,
+    "search_query": "Michael Jordan missing shot",
+    "effect": "slow_zoom",
+    "note": "Michael Jordan's failures."
+  },
+  {
+    "clip_index": 3,
+    "start_sec": 14.0,
+    "end_sec": 17.0,
+    "duration_sec": 3.0,
+    "search_query": "basketball player training",
+    "effect": "meme_zoom",
+    "note": "Jordan's quote on failure and success."
+  },
+  {
+    "clip_index": 4,
+    "start_sec": 17.0,
+    "end_sec": 29.0,
+    "duration_sec": 12.0,
+    "search_query": "person learning growth",
+    "effect": "slow_zoom",
+    "note": "Failures teach, not define."
+  },
+  {
+    "clip_index": 5,
+    "start_sec": 29.0,
+    "end_sec": 42.0,
+    "duration_sec": 13.0,
+    "search_query": "person overcoming challenge",
+    "effect": "slow_zoom",
+    "note": "Visualizing perseverance through challenges."
+  },
+  {
+    "clip_index": 6,
+    "start_sec": 42.0,
+    "end_sec": 53.0,
+    "duration_sec": 11.0,
+    "search_query": "person celebrating success",
+    "effect": "meme_zoom",
+    "note": "Visualizing the moment of achievement."
+  },
+  {
+    "clip_index": 7,
+    "start_sec": 53.0,
+    "end_sec": 61.04,
+    "duration_sec": 8.04,
+    "search_query": "path to future success",
+    "effect": "slow_zoom",
+    "note": "Concluding message: every mistake is a step forward."
+  }
+]

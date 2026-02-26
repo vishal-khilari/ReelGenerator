@@ -1,12 +1,12 @@
 {
-  "dominant_emotion": "deep",
+  "dominant_emotion": "motivation",
   "emotion_scores": {
-    "motivation": 0.0,
-    "anxiety": 0.037037037037037035,
-    "deep": 0.12,
-    "funny": 0.038461538461538464
+    "motivation": 0.18947368421052632,
+    "anxiety": 0.044444444444444446,
+    "deep": 0.125,
+    "funny": 0.030303030303030304
   },
-  "intensity": 0.12,
+  "intensity": 0.439,
   "keywords": [
     "jk rollins",
     "harry potter",
@@ -18,60 +18,50 @@
     "failure"
   ],
   "hook_segment": {
-    "id": 12,
-    "start": 51.32,
-    "end": 54.0,
-    "text": "It just means you need to spend more time studying.",
+    "id": 7,
+    "start": 34.98,
+    "end": 37.66,
+    "text": "You have to let your failures teach you.",
     "words": [
       {
-        "word": "It",
-        "start": 51.32,
-        "end": 51.54
+        "word": "You",
+        "start": 34.98,
+        "end": 35.22
       },
       {
-        "word": "just",
-        "start": 51.54,
-        "end": 51.68
-      },
-      {
-        "word": "means",
-        "start": 51.68,
-        "end": 51.94
-      },
-      {
-        "word": "you",
-        "start": 51.94,
-        "end": 52.34
-      },
-      {
-        "word": "need",
-        "start": 52.34,
-        "end": 52.5
+        "word": "have",
+        "start": 35.22,
+        "end": 35.4
       },
       {
         "word": "to",
-        "start": 52.5,
-        "end": 52.64
+        "start": 35.4,
+        "end": 35.58
       },
       {
-        "word": "spend",
-        "start": 52.64,
-        "end": 52.88
+        "word": "let",
+        "start": 35.58,
+        "end": 35.78
       },
       {
-        "word": "more",
-        "start": 52.88,
-        "end": 53.12
+        "word": "your",
+        "start": 35.78,
+        "end": 36.28
       },
       {
-        "word": "time",
-        "start": 53.12,
-        "end": 53.42
+        "word": "failures",
+        "start": 36.28,
+        "end": 36.72
       },
       {
-        "word": "studying.",
-        "start": 53.42,
-        "end": 54.0
+        "word": "teach",
+        "start": 36.72,
+        "end": 37.18
+      },
+      {
+        "word": "you.",
+        "start": 37.18,
+        "end": 37.66
       }
     ]
   },
@@ -182,13 +172,13 @@
       "wpm": 162
     }
   ],
-  "format": "deep_arc",
+  "format": "cinematic_trailer",
   "sentence_emotions": [
     {
       "sentence": "Some of the most successful people in the world are the ones who've had the most failures",
       "emotion": "motivation",
       "scores": {
-        "motivation": 0.0,
+        "motivation": 0.031578947368421054,
         "anxiety": 0.0,
         "deep": 0.0,
         "funny": 0.0
@@ -206,11 +196,11 @@
     },
     {
       "sentence": "Her first Harry Potter book was rejected 12 times before it was finally published",
-      "emotion": "motivation",
+      "emotion": "deep",
       "scores": {
         "motivation": 0.0,
         "anxiety": 0.0,
-        "deep": 0.0,
+        "deep": 0.020833333333333332,
         "funny": 0.0
       }
     },
@@ -229,28 +219,28 @@
       "emotion": "anxiety",
       "scores": {
         "motivation": 0.0,
-        "anxiety": 0.037037037037037035,
+        "anxiety": 0.022222222222222223,
         "deep": 0.0,
         "funny": 0.0
       }
     },
     {
       "sentence": "But he once said, I have failed over and over and over again in my life, and that's why I succeed",
-      "emotion": "deep",
+      "emotion": "funny",
       "scores": {
-        "motivation": 0.0,
-        "anxiety": 0.0,
-        "deep": 0.04,
-        "funny": 0.038461538461538464
+        "motivation": 0.010526315789473684,
+        "anxiety": 0.022222222222222223,
+        "deep": 0.020833333333333332,
+        "funny": 0.030303030303030304
       }
     },
     {
       "sentence": "These people succeeded because they understood that you can't let your failures define you",
       "emotion": "motivation",
       "scores": {
-        "motivation": 0.0,
+        "motivation": 0.05263157894736842,
         "anxiety": 0.0,
-        "deep": 0.0,
+        "deep": 0.041666666666666664,
         "funny": 0.0
       }
     },
@@ -258,7 +248,7 @@
       "sentence": "You have to let your failures teach you",
       "emotion": "motivation",
       "scores": {
-        "motivation": 0.0,
+        "motivation": 0.031578947368421054,
         "anxiety": 0.0,
         "deep": 0.0,
         "funny": 0.0
@@ -270,7 +260,7 @@
       "scores": {
         "motivation": 0.0,
         "anxiety": 0.0,
-        "deep": 0.04,
+        "deep": 0.020833333333333332,
         "funny": 0.0
       }
     },
@@ -288,7 +278,7 @@
       "sentence": "It means you need to try harder to act right",
       "emotion": "motivation",
       "scores": {
-        "motivation": 0.0,
+        "motivation": 0.021052631578947368,
         "anxiety": 0.0,
         "deep": 0.0,
         "funny": 0.0
@@ -310,7 +300,7 @@
       "scores": {
         "motivation": 0.0,
         "anxiety": 0.0,
-        "deep": 0.04,
+        "deep": 0.020833333333333332,
         "funny": 0.0
       }
     },
@@ -318,7 +308,7 @@
       "sentence": "No one's born being good at all things",
       "emotion": "motivation",
       "scores": {
-        "motivation": 0.0,
+        "motivation": 0.010526315789473684,
         "anxiety": 0.0,
         "deep": 0.0,
         "funny": 0.0
@@ -328,7 +318,7 @@
       "sentence": "You become good at things through hard work",
       "emotion": "motivation",
       "scores": {
-        "motivation": 0.0,
+        "motivation": 0.031578947368421054,
         "anxiety": 0.0,
         "deep": 0.0,
         "funny": 0.0
@@ -337,25 +327,25 @@
   ],
   "style": {
     "bg_color": [
-      5,
-      5,
-      15
+      10,
+      10,
+      30
     ],
     "text_color": [
-      180,
-      180,
-      255
+      255,
+      215,
+      0
     ],
     "accent_color": [
-      100,
-      100,
-      200
+      255,
+      140,
+      0
     ],
-    "effect": "subtle_drift",
-    "cut_speed": "slow",
+    "effect": "slow_zoom",
+    "cut_speed": "medium",
     "has_cinematic_bars": true,
-    "subtitle_style": "fade_center",
-    "sfx": "ambient_low"
+    "subtitle_style": "bold_center",
+    "sfx": "cinematic_rise"
   },
   "total_segments": 15,
   "duration": 61.04

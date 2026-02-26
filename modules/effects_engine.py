@@ -27,28 +27,34 @@ def apply_effects_to_visuals(
     emotion: str,
     format_name: str,
     session_dir: Path,
+    visual_plan: list = None,       # ← new param: per-clip plan from visual_planner
 ) -> list:
     """
-    Apply emotion-appropriate effects to each image.
+    Apply cinematic effects to each image.
+    When visual_plan is provided, uses per-clip effect and duration from the plan.
+    Falls back to emotion style defaults when plan is absent.
     Returns list of dicts: {path, frames_dir, effect, duration_sec}
     """
     style = CONFIG["emotion_styles"][emotion]
-    effect = style["effect"]
     has_bars = style["has_cinematic_bars"]
-
-    # Duration per clip (seconds) based on cut speed
-    cut_speed = style["cut_speed"]
-    dur = {"fast": 1.5, "medium": 2.5, "slow": 3.5}[cut_speed]
-
     processed = []
+
     for i, img_path in enumerate(visual_paths):
         out_dir = session_dir / "frames" / f"clip_{i:03d}"
         out_dir.mkdir(parents=True, exist_ok=True)
 
-        # Vary effects slightly to avoid monotony
-        clip_effect = effect
-        if i % 4 == 3:
-            clip_effect = "subtle_drift"  # Every 4th clip: different feel
+        # Use plan values when available, otherwise fall back to style defaults
+        if visual_plan and i < len(visual_plan):
+            slot = visual_plan[i]
+            clip_effect = slot.get("effect", style["effect"])
+            dur = slot["duration_sec"]
+        else:
+            clip_effect = style["effect"]
+            # Every 4th clip gets a subtle_drift for variety (legacy behaviour)
+            if i % 4 == 3:
+                clip_effect = "subtle_drift"
+            cut_speed = style["cut_speed"]
+            dur = {"fast": 1.5, "medium": 2.5, "slow": 3.5}[cut_speed]
 
         frame_count = int(dur * FPS)
         _render_effect_frames(img_path, clip_effect, frame_count, has_bars, out_dir)
@@ -113,7 +119,6 @@ def _glitch_effect(img: np.ndarray, t: float, intensity: float = 0.5) -> np.ndar
     Glitch effect: RGB channel offset + scanlines + random block corruption.
     Intensity oscillates — strongest at start/peak moments.
     """
-    # Oscillate intensity for organic feel
     glitch_strength = intensity * (0.5 + 0.5 * np.sin(t * np.pi * 6))
     frame = img.copy().astype(np.float32)
 
@@ -124,7 +129,6 @@ def _glitch_effect(img: np.ndarray, t: float, intensity: float = 0.5) -> np.ndar
     b, g, r = cv2.split(frame)
     rows, cols = r.shape
 
-    # Shift red channel right, blue channel left
     M_r = np.float32([[1, 0, shift_x], [0, 1, shift_y]])
     M_b = np.float32([[1, 0, -shift_x], [0, 1, -shift_y]])
     r = cv2.warpAffine(r, M_r, (cols, rows))
@@ -151,12 +155,10 @@ def _subtle_drift(img: np.ndarray, t: float) -> np.ndarray:
     """
     Parallax drift: slowly pan across oversized image for depth.
     """
-    # Oversized source: 1.15x
     src = cv2.resize(img, (int(W * 1.15), int(H * 1.05)))
     max_x = src.shape[1] - W
     max_y = src.shape[0] - H
 
-    # Sinusoidal drift path
     x = int(max_x * 0.5 * (1 + np.sin(t * np.pi)))
     y = int(max_y * t * 0.3)
     x = min(x, max_x)
@@ -169,7 +171,6 @@ def _meme_zoom(img: np.ndarray, t: float) -> np.ndarray:
     """
     Aggressive punch zoom: fast zoom in with slight rotation wobble.
     """
-    # Ease-out zoom: fast at start, slows toward end
     ease = 1 - (1 - t) ** 3  # cubic ease out
     zoom = 1.0 + ease * 0.35  # zoom up to 1.35x
 
@@ -181,7 +182,6 @@ def _meme_zoom(img: np.ndarray, t: float) -> np.ndarray:
     cropped = img[y1:y1+new_h, x1:x1+new_w]
     zoomed = cv2.resize(cropped, (W, H), interpolation=cv2.INTER_LINEAR)
 
-    # Slight color saturation boost for meme punch
     hsv = cv2.cvtColor(zoomed, cv2.COLOR_BGR2HSV).astype(np.float32)
     hsv[:, :, 1] = np.clip(hsv[:, :, 1] * (1 + ease * 0.4), 0, 255)
     return cv2.cvtColor(hsv.astype(np.uint8), cv2.COLOR_HSV2BGR)
@@ -194,8 +194,8 @@ def _add_cinematic_bars(frame: np.ndarray, bar_ratio: float = 0.075) -> np.ndarr
     """
     bar_h = int(H * bar_ratio)
     frame = frame.copy()
-    frame[:bar_h, :] = 0           # top bar
-    frame[H - bar_h:, :] = 0       # bottom bar
+    frame[:bar_h, :] = 0
+    frame[H - bar_h:, :] = 0
     return frame
 
 
@@ -217,7 +217,6 @@ def generate_transition_frame(
         return out
 
     elif transition_type == "flash_white":
-        # First half: fade to white; second half: fade from white
         white = np.full_like(frame_a, 255)
         if t < 0.5:
             alpha = t * 2

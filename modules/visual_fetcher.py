@@ -7,9 +7,16 @@ Fetches high-quality vertical images/videos from free APIs:
 
 Fallback: Generates dark gradient backgrounds procedurally using numpy.
 All visuals are resized to 1080x1920 (9:16 vertical).
+
+FIXES:
+  - Pixabay per_page minimum is 3 (was 2 → caused 400 errors)
+  - Removed double && bug by cleaning params before passing to requests
+  - Increased timeouts (Pexels was timing out at 10s)
+  - Added retry logic for transient 503 errors
 """
 
 import os
+import time
 import requests
 import numpy as np
 from pathlib import Path
@@ -19,39 +26,41 @@ from config import CONFIG
 
 W, H = CONFIG["video"]["width"], CONFIG["video"]["height"]
 
+# Retry settings
+MAX_RETRIES = 2
+RETRY_DELAY = 1.5  # seconds between retries
 
-def fetch_visuals(keywords: list, emotion: str, session_dir: Path) -> list:
+
+def fetch_visuals(visual_plan: list, emotion: str, session_dir: Path) -> list:
     """
-    Try to fetch visuals from APIs using keywords.
-    Falls back to procedural generation if all APIs fail.
-    Returns list of local image paths.
+    Fetch one image per clip slot defined by the visual plan.
+    Returns list of local image paths, in the same order as visual_plan.
     """
     visuals_dir = session_dir / "visuals_raw"
     visuals_dir.mkdir(exist_ok=True)
-
-    # Build emotion-augmented queries
-    queries = _build_queries(keywords, emotion)
+    style = CONFIG["emotion_styles"][emotion]
     collected = []
 
-    # Try APIs in order
-    for query in queries[:4]:  # 4 queries × up to 2 images = ~8 images
+    for slot in visual_plan:
+        query = slot["search_query"].strip()
+        if not query:
+            query = f"{emotion} cinematic"
+
         images = (
             _fetch_pexels_photos(query, visuals_dir)
             or _fetch_pixabay(query, visuals_dir)
             or _fetch_unsplash(query, visuals_dir)
         )
-        collected.extend(images)
-        if len(collected) >= 8:
-            break
+        if images:
+            collected.append(images[0])
+        else:
+            path = _generate_bg(
+                style["bg_color"], style["accent_color"],
+                len(collected), visuals_dir
+            )
+            collected.append(path)
 
-    # Always add procedurally generated backgrounds as fallback/filler
-    style = CONFIG["emotion_styles"][emotion]
-    gen_dir = session_dir / "visuals_raw"
-    for i in range(max(0, 8 - len(collected))):
-        path = _generate_bg(style["bg_color"], style["accent_color"], i, gen_dir)
-        collected.append(path)
-
-    return collected[:10]  # Cap at 10 visuals
+    return collected
 
 
 def _build_queries(keywords: list, emotion: str) -> list:
@@ -68,66 +77,97 @@ def _build_queries(keywords: list, emotion: str) -> list:
     for i, kw in enumerate(keywords[:3]):
         mod = mods[i % len(mods)]
         queries.append(f"{kw} {mod}")
-    # Add pure emotion queries
     queries.append(f"{emotion} dark cinematic aesthetic")
     queries.append("dark minimalist vertical background")
     return queries
 
 
 def _fetch_pexels_photos(query: str, out_dir: Path) -> list:
-    """Fetch from Pexels free API. Returns list of saved image paths."""
+    """
+    Fetch from Pexels free API.
+    FIX: Increased timeout to 20s, added retry logic for 503 errors.
+    """
     api_key = CONFIG["apis"]["pexels_api_key"]
     if not api_key or api_key == "YOUR_PEXELS_API_KEY":
         return []
 
-    try:
-        url = "https://api.pexels.com/v1/search"
-        headers = {"Authorization": api_key}
-        params = {
-            "query": query,
-            "per_page": 2,
-            "orientation": "portrait",  # Vertical images only
-            "size": "medium",
-        }
-        resp = requests.get(url, headers=headers, params=params, timeout=10)
-        resp.raise_for_status()
-        photos = resp.json().get("photos", [])
-        paths = []
-        for i, photo in enumerate(photos):
-            img_url = photo["src"]["large"]
-            path = out_dir / f"pexels_{query[:20].replace(' ','_')}_{i}.jpg"
-            _download_image(img_url, path)
-            paths.append(str(path))
-        return paths
-    except Exception as e:
-        print(f"      ⚠️  Pexels failed for '{query}': {e}")
-        return []
+    for attempt in range(MAX_RETRIES):
+        try:
+            url = "https://api.pexels.com/v1/search"
+            headers = {"Authorization": api_key}
+            params = {
+                "query": query,
+                "per_page": 3,           # FIX: was 2, increased for better results
+                "orientation": "portrait",
+                "size": "medium",
+            }
+            resp = requests.get(url, headers=headers, params=params, timeout=20)
+
+            # Retry on 503
+            if resp.status_code == 503 and attempt < MAX_RETRIES - 1:
+                print(f"      ⚠️  Pexels 503, retrying ({attempt+1}/{MAX_RETRIES})...")
+                time.sleep(RETRY_DELAY)
+                continue
+
+            resp.raise_for_status()
+            photos = resp.json().get("photos", [])
+            paths = []
+            for i, photo in enumerate(photos[:2]):
+                img_url = photo["src"]["large"]
+                safe_query = query[:20].replace(" ", "_").replace("/", "_")
+                path = out_dir / f"pexels_{safe_query}_{i}.jpg"
+                _download_image(img_url, path)
+                paths.append(str(path))
+            return paths
+
+        except requests.exceptions.Timeout:
+            if attempt < MAX_RETRIES - 1:
+                print(f"      ⚠️  Pexels timeout, retrying ({attempt+1}/{MAX_RETRIES})...")
+                time.sleep(RETRY_DELAY)
+            else:
+                print(f"      ⚠️  Pexels timed out for '{query}' after {MAX_RETRIES} attempts")
+        except Exception as e:
+            print(f"      ⚠️  Pexels failed for '{query}': {e}")
+            break
+
+    return []
 
 
 def _fetch_pixabay(query: str, out_dir: Path) -> list:
-    """Fetch from Pixabay free API."""
+    """
+    Fetch from Pixabay free API.
+    FIX: per_page minimum is 3 (was 2 → caused 400 Bad Request).
+    FIX: Clean query to prevent double && in URL.
+    FIX: Increased timeout to 20s.
+    """
     api_key = CONFIG["apis"]["pixabay_api_key"]
     if not api_key or api_key == "YOUR_PIXABAY_API_KEY":
         return []
 
     try:
         url = "https://pixabay.com/api/"
+        # FIX: Build params carefully — no empty strings, no trailing spaces
+        clean_query = " ".join(query.strip().split())  # normalize whitespace
         params = {
             "key": api_key,
-            "q": query,
+            "q": clean_query,
             "image_type": "photo",
             "orientation": "vertical",
-            "per_page": 2,
+            "per_page": 3,            # FIX: was 2 → 400 error (min is 3)
             "safesearch": "true",
             "order": "popular",
         }
-        resp = requests.get(url, params=params, timeout=10)
+        # FIX: Remove any None/empty values that create double && in URL
+        params = {k: v for k, v in params.items() if v is not None and v != ""}
+
+        resp = requests.get(url, params=params, timeout=20)
         resp.raise_for_status()
         hits = resp.json().get("hits", [])
         paths = []
         for i, hit in enumerate(hits[:2]):
             img_url = hit["largeImageURL"]
-            path = out_dir / f"pixabay_{query[:20].replace(' ','_')}_{i}.jpg"
+            safe_query = clean_query[:20].replace(" ", "_").replace("/", "_")
+            path = out_dir / f"pixabay_{safe_query}_{i}.jpg"
             _download_image(img_url, path)
             paths.append(str(path))
         return paths
@@ -137,7 +177,10 @@ def _fetch_pixabay(query: str, out_dir: Path) -> list:
 
 
 def _fetch_unsplash(query: str, out_dir: Path) -> list:
-    """Fetch from Unsplash free API."""
+    """
+    Fetch from Unsplash free API.
+    FIX: Increased timeout to 20s.
+    """
     api_key = CONFIG["apis"]["unsplash_api_key"]
     if not api_key or api_key == "YOUR_UNSPLASH_API_KEY":
         return []
@@ -146,17 +189,18 @@ def _fetch_unsplash(query: str, out_dir: Path) -> list:
         url = "https://api.unsplash.com/search/photos"
         headers = {"Authorization": f"Client-ID {api_key}"}
         params = {
-            "query": query,
-            "per_page": 2,
+            "query": query.strip(),
+            "per_page": 3,
             "orientation": "portrait",
         }
-        resp = requests.get(url, headers=headers, params=params, timeout=10)
+        resp = requests.get(url, headers=headers, params=params, timeout=20)
         resp.raise_for_status()
         results = resp.json().get("results", [])
         paths = []
         for i, photo in enumerate(results[:2]):
             img_url = photo["urls"]["regular"]
-            path = out_dir / f"unsplash_{query[:20].replace(' ','_')}_{i}.jpg"
+            safe_query = query[:20].replace(" ", "_").replace("/", "_")
+            path = out_dir / f"unsplash_{safe_query}_{i}.jpg"
             _download_image(img_url, path)
             paths.append(str(path))
         return paths
@@ -167,7 +211,7 @@ def _fetch_unsplash(query: str, out_dir: Path) -> list:
 
 def _download_image(url: str, save_path: Path):
     """Download, crop center, resize to 1080x1920."""
-    resp = requests.get(url, timeout=15)
+    resp = requests.get(url, timeout=20)
     resp.raise_for_status()
     with open(save_path, "wb") as f:
         f.write(resp.content)
@@ -185,14 +229,12 @@ def _resize_to_vertical(img_path: Path):
     img_ratio = iw / ih
 
     if img_ratio > target_ratio:
-        # Image is wider — crop sides
         new_w = int(ih * target_ratio)
         left = (iw - new_w) // 2
         img = img.crop((left, 0, left + new_w, ih))
     else:
-        # Image is taller — crop top/bottom (keep top third for portraits)
         new_h = int(iw / target_ratio)
-        top = int(ih * 0.1)  # Slight top-biased crop
+        top = int(ih * 0.1)
         top = min(top, ih - new_h)
         img = img.crop((0, top, iw, top + new_h))
 
@@ -208,30 +250,23 @@ def _generate_bg(bg_color: tuple, accent_color: tuple, index: int, out_dir: Path
     - Light leak overlay
     """
     arr = np.zeros((H, W, 3), dtype=np.uint8)
-
-    # Base color fill
     arr[:, :] = bg_color
 
-    # Radial gradient (lighter in center, darker at edges)
     cy, cx = H // 2, W // 2
     Y, X = np.ogrid[:H, :W]
     dist = np.sqrt((X - cx)**2 + (Y - cy)**2)
     max_dist = np.sqrt(cx**2 + cy**2)
-    glow = 1.0 - (dist / max_dist) * 0.6  # 0.4 at edges, 1.0 at center
+    glow = 1.0 - (dist / max_dist) * 0.6
     glow = np.clip(glow, 0, 1)
 
     for c in range(3):
-        # Mix bg_color toward accent_color using glow map
         mixed = bg_color[c] * (1 - glow * 0.4) + accent_color[c] * glow * 0.2
         arr[:, :, c] = np.clip(mixed, 0, 255)
 
-    # Film grain noise
     noise = np.random.randint(-12, 13, (H, W, 3), dtype=np.int16)
     arr = np.clip(arr.astype(np.int16) + noise, 0, 255).astype(np.uint8)
 
-    # Save
     img = Image.fromarray(arr)
-    # Light gaussian blur for smoothness
     img = img.filter(ImageFilter.GaussianBlur(radius=3))
     path = out_dir / f"gen_bg_{index}.jpg"
     img.save(str(path), "JPEG", quality=88)

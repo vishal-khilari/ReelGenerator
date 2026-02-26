@@ -7,6 +7,12 @@ Uses spaCy + lexicon scoring to detect:
   - Best hook sentence (highest emotional density in first 3 seconds)
   - Format recommendation
   - Pacing map (which segments are high/low energy)
+
+FIXES:
+  - Expanded emotion lexicons with root forms, inflections, and common variants
+    (e.g. "success" alone missed "succeed", "succeeded", "successful")
+  - Lexicon scoring now uses lemmatized words via spaCy for better matching
+  - Added fallback to "motivation" when all scores are zero (prevents wrong defaults)
 """
 
 import re
@@ -14,40 +20,154 @@ import spacy
 from collections import Counter
 from config import CONFIG
 
-# ── Emotion Lexicons (expandable) ────────────────────────────────────────────
+# ── Emotion Lexicons (expanded with word variants) ────────────────────────────
+#
+# ROOT CAUSE OF MISDETECTION:
+#   Old lexicon had "success" but transcript contains "successful", "succeed",
+#   "succeeded" → zero score for motivation on a motivation speech!
+#   Fix: added inflected forms + semantically close words for each category.
+#
 EMOTION_LEXICONS = {
     "motivation": [
-        "dream", "goal", "achieve", "success", "win", "rise", "grind", "hustle",
-        "believe", "grow", "build", "create", "fight", "never", "give", "up",
-        "strong", "power", "vision", "focus", "discipline", "unstoppable",
-        "potential", "greatness", "purpose", "commit", "earn", "deserve",
+        # Core success words — all inflections
+        "dream", "dreams", "dreamer",
+        "goal", "goals",
+        "achieve", "achieved", "achievement", "achiever",
+        "success", "successful", "succeed", "succeeds", "succeeded",
+        "win", "wins", "winner", "winning",
+        "rise", "rises", "rising",
+        "grind", "hustle",
+        "believe", "belief", "believed",
+        "grow", "grows", "growth", "grew",
+        "build", "builds", "built",
+        "create", "creates", "created",
+        "fight", "fights",
+        "never",
+        "strong", "strength", "stronger",
+        "power", "powerful",
+        "vision",
+        "focus", "focused",
+        "discipline",
+        "unstoppable",
+        "potential",
+        "greatness", "great",
+        "purpose",
+        "commit", "commitment",
+        "earn", "earned",
+        "deserve", "deserves",
+        # Added for common motivational speeches
+        "failure", "failures",       # reframed as fuel → motivation context
+        "lesson", "lessons",
+        "hard", "work", "worked",
+        "keep", "going",
+        "define", "defined",
+        "teach", "teaches", "taught",
+        "legend", "legends",
+        "born",
+        "become", "becomes",
+        "overcome", "overcame",
+        "inspire", "inspired", "inspiration",
+        "persist", "persistence",
+        "resilience", "resilient",
+        "try", "tries", "tried",
+        "improve", "improved",
+        "learn", "learns", "learned",
     ],
     "anxiety": [
-        "fear", "panic", "worry", "stress", "anxious", "nervous", "overwhelm",
-        "scared", "doubt", "fail", "lost", "dark", "alone", "tired", "broken",
-        "stuck", "trap", "suffocate", "spiral", "collapse", "dread", "terror",
-        "exhausted", "numb", "empty", "hollow", "pressure",
+        "fear", "fears",
+        "panic",
+        "worry", "worries", "worried",
+        "stress", "stressed",
+        "anxious", "anxiety",
+        "nervous",
+        "overwhelm", "overwhelmed",
+        "scared", "scare",
+        "doubt", "doubts",
+        "fail",                        # raw fail (not failure-as-lesson)
+        "lost",
+        "dark", "darkness",
+        "alone", "lonely",
+        "tired", "exhausted",
+        "broken",
+        "stuck",
+        "trap", "trapped",
+        "suffocate", "suffocating",
+        "spiral",
+        "collapse", "collapsed",
+        "dread",
+        "terror", "terrified",
+        "numb", "empty", "hollow",
+        "pressure",
+        "helpless",
+        "hopeless",
+        "shame", "ashamed",
     ],
     "deep": [
-        "truth", "reality", "exist", "meaning", "purpose", "soul", "conscious",
-        "universe", "human", "time", "moment", "death", "life", "wonder",
-        "silence", "void", "infinite", "illusion", "perception", "mind",
-        "aware", "feeling", "subconscious", "thought", "identity",
+        "truth", "truths",
+        "reality",
+        "exist", "existence",
+        "meaning",
+        "purpose",
+        "soul",
+        "conscious", "consciousness",
+        "universe",
+        "human", "humanity",
+        "time",
+        "moment", "moments",
+        "death",
+        "life",
+        "wonder",
+        "silence",
+        "void",
+        "infinite", "infinity",
+        "illusion",
+        "perception",
+        "mind",
+        "aware", "awareness",
+        "feeling", "feelings",
+        "subconscious",
+        "thought", "thoughts",
+        "identity",
+        "understand", "understood", "understanding",
+        "question", "questions",
+        "answer", "answers",
+        "wisdom",
+        "reflection",
+        "journey",
+        "choice", "choices",
+        "change",
+        "perspective",
     ],
     "funny": [
-        "literally", "actually", "basically", "absolutely", "seriously",
-        "ridiculous", "insane", "crazy", "wild", "brain", "wait", "okay",
-        "imagine", "except", "plot", "twist", "nobody", "everyone", "always",
-        "never", "why", "huh", "lol", "funny", "joke", "ironic",
+        "literally", "actually", "basically",
+        "absolutely", "seriously",
+        "ridiculous", "insane", "crazy", "wild",
+        "brain",
+        "wait", "okay",
+        "imagine",
+        "except",
+        "plot", "twist",
+        "nobody", "everyone",
+        "always", "never",
+        "why", "huh",
+        "lol",
+        "funny", "joke",
+        "ironic", "irony",
+        "awkward",
+        "random",
+        "relatable",
+        "same",
+        "mood",
+        "vibe",
     ],
 }
 
 # ── Format Heuristics ─────────────────────────────────────────────────────────
 FORMAT_RULES = {
-    "anxiety": "brain_simulation",           # glitchy internal monologue
-    "motivation": "cinematic_trailer",       # slow burn + powerful reveal
-    "deep": "deep_arc",                      # philosophical emotional journey
-    "funny": "dialogue_mode",               # you vs your brain comedy
+    "anxiety": "brain_simulation",
+    "motivation": "cinematic_trailer",
+    "deep": "deep_arc",
+    "funny": "dialogue_mode",
     "neutral": "cinematic_trailer",
 }
 
@@ -56,44 +176,45 @@ INTENSITY_WORDS = [
     "never", "always", "every", "entire", "completely", "literally",
     "absolutely", "extremely", "impossible", "devastating", "incredible",
     "insane", "wildly", "deeply", "profoundly", "desperately",
+    "hundreds", "thousands", "over",           # added for scale words
 ]
 
 
 def analyze_script(transcript: dict) -> dict:
-    """
-    Full analysis pipeline. Returns emotion, intensity, keywords, format.
-    """
+    """Full analysis pipeline. Returns emotion, intensity, keywords, format."""
     nlp = _load_spacy()
     text = transcript["full_text"]
     segments = transcript["segments"]
 
-    # 1. Emotion scoring
-    emotion_scores = _score_emotions(text)
-    dominant_emotion = max(emotion_scores, key=emotion_scores.get)
+    # 1. Emotion scoring — now uses lemmatized tokens for better matching
+    emotion_scores = _score_emotions_with_lemma(nlp, text)
 
-    # 2. Intensity score (0.0 → 1.0)
+    # 2. Fallback: if all scores are 0 or tied, check sentence structure
+    dominant_emotion = _pick_dominant_emotion(emotion_scores, text)
+
+    # 3. Intensity score (0.0 → 1.0)
     intensity = _compute_intensity(text, emotion_scores)
 
-    # 3. Keyword extraction via spaCy
+    # 4. Keyword extraction via spaCy
     keywords = _extract_keywords(nlp, text)
 
-    # 4. Hook detection — highest emotion density sentence near start
+    # 5. Hook detection
     hook_segment = _detect_hook_segment(segments, emotion_scores, dominant_emotion)
 
-    # 5. Pacing map — label each segment as high/low energy
+    # 6. Pacing map
     pacing_map = _build_pacing_map(segments)
 
-    # 6. Format recommendation
+    # 7. Format recommendation
     format_choice = FORMAT_RULES.get(dominant_emotion, "cinematic_trailer")
 
-    # 7. Sentence-level emotion breakdown for dynamic styling
-    sentence_emotions = _analyze_sentences(text)
+    # 8. Sentence-level emotion breakdown
+    sentence_emotions = _analyze_sentences(nlp, text)
 
     return {
         "dominant_emotion": dominant_emotion,
         "emotion_scores": emotion_scores,
         "intensity": intensity,
-        "keywords": keywords[:8],          # Top 8 for visual search
+        "keywords": keywords[:8],
         "hook_segment": hook_segment,
         "pacing_map": pacing_map,
         "format": format_choice,
@@ -113,16 +234,58 @@ def _load_spacy():
         return spacy.load("en_core_web_sm")
 
 
-def _score_emotions(text: str) -> dict:
-    """Score each emotion category by keyword presence + weighting."""
-    words = re.findall(r'\b\w+\b', text.lower())
-    word_freq = Counter(words)
+def _score_emotions_with_lemma(nlp, text: str) -> dict:
+    """
+    Score emotions using both raw words AND lemmatized tokens.
+    This fixes the core bug where "successful" didn't match "success".
+    """
+    doc = nlp(text)
+
+    # Build a frequency counter of both raw lower words AND lemmas
+    word_tokens = set()
+    for token in doc:
+        word_tokens.add(token.text.lower())
+        word_tokens.add(token.lemma_.lower())
+
+    # Also do raw word frequency (for per-occurrence weighting)
+    raw_words = re.findall(r'\b\w+\b', text.lower())
+    word_freq = Counter(raw_words)
+
+    # Add lemma frequencies
+    for token in doc:
+        lemma = token.lemma_.lower()
+        if lemma != token.text.lower():
+            word_freq[lemma] = word_freq.get(lemma, 0) + 1
+
     scores = {}
     for emotion, lexicon in EMOTION_LEXICONS.items():
         score = sum(word_freq.get(w, 0) for w in lexicon)
-        # Normalize by lexicon size so smaller lexicons aren't penalized
         scores[emotion] = score / max(len(lexicon), 1)
+
     return scores
+
+
+def _pick_dominant_emotion(emotion_scores: dict, text: str) -> str:
+    """
+    Pick the dominant emotion with smart fallback logic.
+    If all scores are very low (< 0.01), use heuristics on the text.
+    """
+    max_score = max(emotion_scores.values()) if emotion_scores else 0
+    dominant = max(emotion_scores, key=emotion_scores.get)
+
+    # If the winning margin is very thin or all near-zero, apply heuristics
+    if max_score < 0.01:
+        text_lower = text.lower()
+        # Simple keyword presence check for common speech types
+        if any(w in text_lower for w in ["succeed", "success", "failure teaches", "hard work", "never give"]):
+            return "motivation"
+        if any(w in text_lower for w in ["anxiety", "panic", "fear", "dark", "alone"]):
+            return "anxiety"
+        if any(w in text_lower for w in ["universe", "consciousness", "existence", "meaning of"]):
+            return "deep"
+        return "motivation"  # default for speech content
+
+    return dominant
 
 
 def _compute_intensity(text: str, emotion_scores: dict) -> float:
@@ -150,21 +313,17 @@ def _extract_keywords(nlp, text: str) -> list:
     doc = nlp(text)
     keywords = []
 
-    # Named entities first (most visually concrete)
     for ent in doc.ents:
         if ent.label_ in ("PERSON", "ORG", "GPE", "NORP", "LOC", "PRODUCT", "EVENT"):
             keywords.append(ent.text.lower())
 
-    # Key nouns and adjective-noun pairs
     for token in doc:
         if token.pos_ in ("NOUN", "PROPN") and not token.is_stop and len(token.text) > 3:
             keywords.append(token.lemma_.lower())
         if token.pos_ == "ADJ" and not token.is_stop:
-            # Look for following noun
             if token.i + 1 < len(doc) and doc[token.i + 1].pos_ in ("NOUN", "PROPN"):
                 keywords.append(f"{token.text} {doc[token.i+1].text}".lower())
 
-    # Deduplicate preserving order
     seen = set()
     unique = []
     for k in keywords:
@@ -204,7 +363,7 @@ def _build_pacing_map(segments: list) -> list:
     for i, seg in enumerate(segments):
         words = seg["text"].split()
         duration = max(seg["end"] - seg["start"], 0.1)
-        wpm = (len(words) / duration) * 60  # words per minute speaking rate
+        wpm = (len(words) / duration) * 60
 
         if i == 0:
             label = "hook"
@@ -225,7 +384,7 @@ def _build_pacing_map(segments: list) -> list:
     return pacing
 
 
-def _analyze_sentences(text: str) -> list:
+def _analyze_sentences(nlp, text: str) -> list:
     """Per-sentence emotion tags for dynamic style switching mid-video."""
     sentences = re.split(r'[.!?]+', text)
     result = []
@@ -233,7 +392,19 @@ def _analyze_sentences(text: str) -> list:
         sent = sent.strip()
         if not sent:
             continue
-        scores = _score_emotions(sent)
+        scores = _score_emotions_with_lemma(nlp, sent)
         dominant = max(scores, key=scores.get)
         result.append({"sentence": sent, "emotion": dominant, "scores": scores})
     return result
+
+
+# ── Backward-compatible wrapper for old raw-word scoring ─────────────────────
+def _score_emotions(text: str) -> dict:
+    """Legacy raw-word scorer kept for any external callers."""
+    words = re.findall(r'\b\w+\b', text.lower())
+    word_freq = Counter(words)
+    scores = {}
+    for emotion, lexicon in EMOTION_LEXICONS.items():
+        score = sum(word_freq.get(w, 0) for w in lexicon)
+        scores[emotion] = score / max(len(lexicon), 1)
+    return scores

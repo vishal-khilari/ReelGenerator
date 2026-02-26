@@ -1,33 +1,27 @@
 {
-  "hook": "The world's winners? They failed the MOST.",
-  "hook_visual_note": "Quick montage of 'FAILURE' text, then a question mark, then a silhouette of a person standing tall.",
-  "buildup": "J.K. Rowling's first Harry Potter book was rejected 12 times. Michael Jordan? Cut from his high school team, missed thousands of shots. He famously said, 'I've failed over and over... that's why I succeed.' They understood failure isn't the end.",
-  "buildup_visual_note": "Visuals of J.K. Rowling's book, then rejection letters. Michael Jordan playing basketball.",
-  "punchline": "Your failures don't define you. They teach you. They're not dead ends; they're directions. You become good at things through hard work, not by avoiding mistakes. Embrace the lesson.",
-  "punchline_visual_note": "Animation of a path with 'FAILURE' signs turning into 'LESSON' signs. Person walking confidently.",
-  "full_rewritten": "The world's winners? They failed the MOST. J.K. Rowling's first Harry Potter book was rejected 12 times. Michael Jordan? Cut from his high school team, missed thousands of shots. He famously said, 'I've failed over and over... that's why I succeed.' They understood failure isn't the end. Your failures don't define you. They teach you. They're not dead ends; they're directions. You become good at things through hard work, not by avoiding mistakes. Embrace the lesson.",
+  "hook": "Failure is your secret weapon.",
+  "hook_visual_note": "Quick cuts: someone falling, a rejection letter, then a determined eye.",
+  "buildup": "JK Rowling's first Harry Potter book? Rejected 12 times. Michael Jordan? Cut from his high school team, missed thousands of shots. He said, 'I've failed over and over again in my life. That's why I succeed.'",
+  "buildup_visual_note": "Quick cuts: rejection letter pile, basketball flying past hoop, then Jordan's determined face.",
+  "punchline": "They didn't let failures define them. They let them *teach* them. Every mistake shows you what to do differently. You become good by working hard, not by being perfect.",
+  "punchline_visual_note": "Person overcoming obstacle, then confident gaze. Text: 'LEARN. ADAPT. CONQUER.'",
+  "full_rewritten": "Failure is your secret weapon. JK Rowling's first Harry Potter book? Rejected 12 times. Michael Jordan? Cut from his high school team, missed thousands of shots. He said, 'I've failed over and over again in my life. That's why I succeed.' They didn't let failures define them. They let them *teach* them. Every mistake shows you what to do differently. You become good by working hard, not by being perfect.",
   "subtitle_emphasis_words": [
-    "winners",
+    "Failure",
+    "secret weapon",
+    "Rejected",
+    "Cut",
     "failed",
-    "MOST",
-    "rejected",
-    "cut",
     "succeed",
-    "don't define",
     "teach",
-    "directions",
     "hard work",
-    "Embrace"
+    "perfect"
   ],
   "search_query_visuals": [
-    "rejection letter animation",
-    "Michael Jordan missed shot footage",
-    "J.K. Rowling early life",
-    "path to success infographic",
-    "growth mindset illustrations",
-    "abstract failure to learning",
-    "person overcoming obstacles silhouette",
-    "hard work visual metaphor"
+    "rejection letter pile",
+    "Michael Jordan missed shot",
+    "person learning new skill",
+    "phoenix rising from ashes"
   ],
   "source": "gemini"
 }

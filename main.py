@@ -15,6 +15,7 @@ sys.path.insert(0, str(Path(__file__).parent))
 from modules.transcriber import transcribe_audio
 from modules.analyzer import analyze_script
 from modules.script_enhancer import enhance_script
+from modules.visual_planner import plan_visuals
 from modules.visual_fetcher import fetch_visuals
 from modules.effects_engine import apply_effects_to_visuals
 from modules.video_assembler import assemble_reel
@@ -55,15 +56,23 @@ def run_pipeline(audio_path: str):
     _save(session_dir / "enhanced_script.json", enhanced)
     print(f"    ✅ Hook: \"{enhanced['hook'][:60]}...\"")
 
+    # ─── STEP 3b: PLAN VISUALS ────────────────────────────────────
+    print("\n[3b/7] 🗓️  Planning visual structure with Gemini...")
+    visual_plan = plan_visuals(transcript, analysis, enhanced)
+    _save(session_dir / "visual_plan.json", visual_plan)
+    print(f"    ✅ {len(visual_plan)} clips planned "
+          f"({sum(c['duration_sec'] for c in visual_plan):.1f}s total)")
+
     # ─── STEP 4: FETCH VISUALS ────────────────────────────────────
-    print("\n[4/7] 🖼️  Fetching relevant visuals...")
-    visuals = fetch_visuals(analysis['keywords'], analysis['dominant_emotion'], session_dir)
+    print("\n[4/7] 🖼️  Fetching visuals for each planned clip slot...")
+    visuals = fetch_visuals(visual_plan, analysis['dominant_emotion'], session_dir)
     print(f"    ✅ {len(visuals)} visuals collected")
 
     # ─── STEP 5: APPLY EFFECTS ────────────────────────────────────
-    print("\n[5/7] ⚡  Applying cinematic effects based on emotion...")
+    print("\n[5/7] ⚡  Applying per-clip effects...")
     processed_visuals = apply_effects_to_visuals(
-        visuals, analysis['dominant_emotion'], analysis['format'], session_dir
+        visuals, analysis['dominant_emotion'], analysis['format'],
+        session_dir, visual_plan=visual_plan
     )
     print(f"    ✅ Effects applied: {analysis['dominant_emotion']} style")
 
